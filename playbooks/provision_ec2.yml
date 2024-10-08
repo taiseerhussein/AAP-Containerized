@@ -1,0 +1,73 @@
+---
+- name: Provision an EC2 instance in AWS
+  hosts: localhost
+  gather_facts: false
+  vars:
+    instance_name: "AAP-EC2-Instance"
+    instance_type: "t2.medium"
+    key_name: "your-keypair-name"
+    security_group: "AAP-SG"
+    region: "us-west-2"
+    image_id: "ami-0a91cd140a1fc148a"  # Change this to the latest Amazon Linux 2 AMI for your region
+    subnet_id: "subnet-xxxxxxxx"  # Replace with your subnet ID
+
+  tasks:
+    - name: Provision a security group
+      amazon.aws.ec2_security_group:
+        name: "{{ security_group }}"
+        description: "Security group for AAP EC2 instance"
+        region: "{{ region }}"
+        vpc_id: "vpc-xxxxxxxx"  # Replace with your VPC ID
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "0.0.0.0/0"  # Allow SSH from anywhere (not recommended for production)
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: "0.0.0.0/0"  # Allow HTTP access
+          - proto: tcp
+            from_port: 443
+            to_port: 443
+            cidr_ip: "0.0.0.0/0"  # Allow HTTPS access
+      register: security_group_result
+
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        name: "{{ instance_name }}"
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ image_id }}"
+        region: "{{ region }}"
+        vpc_subnet_id: "{{ subnet_id }}"
+        security_groups: "{{ security_group_result.group_id }}"
+        wait: yes
+        assign_public_ip: yes
+      register: ec2_instance
+
+    - name: Wait for SSH to become available
+      amazon.aws.ec2_instance_info:
+        filters:
+          instance-id: "{{ ec2_instance.instance_ids[0] }}"
+      register: ec2_info
+      until: ec2_info.instances[0].state == 'running'
+      retries: 5
+      delay: 15
+
+    - name: Add new EC2 instance to inventory
+      add_host:
+        name: "{{ ec2_instance.public_ip }}"
+        groups: ec2_hosts
+        ansible_user: ec2-user
+
+    - name: Output the instance public IP
+      debug:
+        msg: "EC2 instance public IP: {{ ec2_instance.public_ip }}"
+
+    - name: SSH into the instance and check its status
+      ansible.builtin.shell:
+        cmd: uptime
+      delegate_to: "{{ ec2_instance.public_ip }}"
+      become: false
+

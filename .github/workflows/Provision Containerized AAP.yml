@@ -1,0 +1,31 @@
+name: Provision EC2 and Save Key
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create_ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Run Ansible Playbook to create EC2 instance with SSH key
+      run: |
+        ansible-playbook -i localhost, provision_ec2_with_aap.yml
+
+    - name: Upload SSH private key as an artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ssh-key
+        path: /tmp/dynamic-keypair.pem  # Replace with your key path

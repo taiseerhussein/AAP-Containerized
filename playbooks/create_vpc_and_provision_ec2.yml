@@ -1,0 +1,149 @@
+---
+- name: Ensure VPC, Subnet, and EC2 instance are created in AWS
+  hosts: localhost
+  gather_facts: false
+  vars:
+    vpc_name: "AAP-VPC"
+    cidr_block: "10.0.0.0/16"
+    subnet_name: "AAP-Subnet"
+    subnet_cidr: "10.0.1.0/24"
+    internet_gateway_name: "AAP-IGW"
+    route_table_name: "AAP-Route-Table"
+    security_group_name: "AAP-SG"
+    instance_name: "AAP-EC2-Instance"
+    instance_type: "t2.medium"
+    key_name: "your-keypair-name"
+    region: "us-west-2"
+    ami_id: "ami-0a91cd140a1fc148a"  # Change to latest Amazon Linux 2 AMI for your region
+
+  tasks:
+    - name: Check if VPC exists
+      amazon.aws.ec2_vpc_info:
+        filters:
+          "tag:Name": "{{ vpc_name }}"
+      register: vpc_info
+
+    - name: Create VPC if not present
+      amazon.aws.ec2_vpc:
+        name: "{{ vpc_name }}"
+        cidr_block: "{{ cidr_block }}"
+        enable_dns_support: true
+        enable_dns_hostnames: true
+        region: "{{ region }}"
+      when: vpc_info.vpcs | length == 0
+      register: vpc_result
+
+    - name: Set VPC ID based on creation or lookup
+      set_fact:
+        vpc_id: "{{ (vpc_result.vpc.id if vpc_info.vpcs | length == 0 else vpc_info.vpcs[0].vpc_id) }}"
+
+    - name: Check if Subnet exists
+      amazon.aws.ec2_subnet_info:
+        filters:
+          "tag:Name": "{{ subnet_name }}"
+      register: subnet_info
+
+    - name: Create Subnet if not present
+      amazon.aws.ec2_vpc_subnet:
+        name: "{{ subnet_name }}"
+        vpc_id: "{{ vpc_id }}"
+        cidr: "{{ subnet_cidr }}"
+        region: "{{ region }}"
+        map_public: true
+      when: subnet_info.subnets | length == 0
+      register: subnet_result
+
+    - name: Set Subnet ID based on creation or lookup
+      set_fact:
+        subnet_id: "{{ (subnet_result.subnet.id if subnet_info.subnets | length == 0 else subnet_info.subnets[0].subnet_id) }}"
+
+    - name: Check if Internet Gateway exists
+      amazon.aws.ec2_vpc_igw_info:
+        filters:
+          "tag:Name": "{{ internet_gateway_name }}"
+      register: igw_info
+
+    - name: Create Internet Gateway if not present
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ vpc_id }}"
+        name: "{{ internet_gateway_name }}"
+        region: "{{ region }}"
+      when: igw_info.internet_gateways | length == 0
+      register: igw_result
+
+    - name: Check if Route Table exists
+      amazon.aws.ec2_vpc_route_table_info:
+        filters:
+          "tag:Name": "{{ route_table_name }}"
+      register: route_table_info
+
+    - name: Create Route Table if not present
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ vpc_id }}"
+        name: "{{ route_table_name }}"
+        region: "{{ region }}"
+      when: route_table_info.route_tables | length == 0
+      register: route_table_result
+
+    - name: Associate Subnet with Route Table
+      amazon.aws.ec2_vpc_route_table_subnet_associate:
+        route_table_id: "{{ route_table_result.route_table.id }}"
+        subnet_id: "{{ subnet_id }}"
+        region: "{{ region }}"
+      when: route_table_info.route_tables | length == 0
+
+    - name: Add default route to Internet Gateway in Route Table
+      amazon.aws.ec2_vpc_route:
+        route_table_id: "{{ route_table_result.route_table.id }}"
+        destination_cidr_block: "0.0.0.0/0"
+        gateway_id: "{{ (igw_result.internet_gateway.id if igw_info.internet_gateways | length == 0 else igw_info.internet_gateways[0].internet_gateway_id) }}"
+        region: "{{ region }}"
+
+    - name: Check if Security Group exists
+      amazon.aws.ec2_security_group_info:
+        filters:
+          "tag:Name": "{{ security_group_name }}"
+      register: sg_info
+
+    - name: Create Security Group if not present
+      amazon.aws.ec2_security_group:
+        name: "{{ security_group_name }}"
+        description: "Security group for AAP EC2 instance"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "0.0.0.0/0"  # Allow SSH
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: "0.0.0.0/0"  # Allow HTTP
+          - proto: tcp
+            from_port: 443
+            to_port: 443
+            cidr_ip: "0.0.0.0/0"  # Allow HTTPS
+      when: sg_info.security_groups | length == 0
+      register: sg_result
+
+    - name: Set Security Group ID based on creation or lookup
+      set_fact:
+        sg_id: "{{ (sg_result.group_id if sg_info.security_groups | length == 0 else sg_info.security_groups[0].group_id) }}"
+
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        name: "{{ instance_name }}"
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        region: "{{ region }}"
+        vpc_subnet_id: "{{ subnet_id }}"
+        security_groups: "{{ sg_id }}"
+        wait: yes
+        assign_public_ip: yes
+      register: ec2_instance
+
+    - name: Output the instance public IP
+      debug:
+        msg: "EC2 instance public IP: {{ ec2_instance.public_ip }}"
