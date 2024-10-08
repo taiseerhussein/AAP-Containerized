@@ -15,7 +15,7 @@
     keypair_name: "dynamic-keypair"
     keypair_file_path: "/tmp/{{ keypair_name }}.pem"
     region: "us-east-2"
-    ami_id: "ami-0a91cd140a1fc148a"  # Replace with the latest Amazon Linux 2 AMI for your region
+    ami_id: "ami-078cbc4c2d057c244"  # Replace with the latest Amazon Linux 2 AMI for your region
 
   tasks:
     # VPC Creation
@@ -185,12 +185,15 @@
         sudo systemctl enable docker
       delegate_to: "{{ ec2_instance.public_ip }}"
 
-    # Pull Containerized Ansible Automation Platform 2.5
-    - name: Pull AAP 2.5 containers
-      ansible.builtin.shell: |
-        sudo docker run -d --name aap25 -p 80:80 -p 443:443 registry.redhat.io/ansible-automation-platform-25/aap:2.5
-      delegate_to: "{{ ec2_instance.public_ip }}"
-      become: true
+    - name: Set a hostname specifying strategy
+      ansible.builtin.hostname:
+        name: aap-host
+        use: systemd 
+      register: hostname
+
+    - name: Output hostname
+      debug:
+        msg: "hostname output is: {{ hostname }}" 
 
     - name: Output AAP access information
       debug:
