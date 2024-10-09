@@ -23,6 +23,7 @@ jobs:
 
     - name: Run Ansible Playbook to create EC2 instance with SSH key
       run: |
+        ansible-galaxy collection install -r collections/requirements.yml
         ansible-playbook -i localhost, playbooks/provision_ec2_with_aap.yml
 
     - name: Upload SSH private key as an artifact
