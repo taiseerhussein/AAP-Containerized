@@ -41,7 +41,7 @@
 
     # Subnet Creation
     - name: Check if Subnet exists
-      amazon.aws.ec2_subnet_info:
+      amazon.aws.ec2_vpc_subnet_info:
         filters:
           "tag:Name": "{{ subnet_name }}"
       register: subnet_info
