@@ -15,7 +15,7 @@
     keypair_name: "dynamic-keypair"
     keypair_file_path: "/tmp/{{ keypair_name }}.pem"
     region: "us-east-2"
-    ami_id: "ami-078cbc4c2d057c244"  # Replace with the latest Amazon Linux 2 AMI for your region
+    ami_id: "ami-07d1f1503dcde4ca5"  # Replace with the latest Amazon Linux 2 AMI for your region
 
   tasks:
     # VPC Creation
