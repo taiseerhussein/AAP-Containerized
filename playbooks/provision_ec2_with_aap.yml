@@ -90,14 +90,14 @@
       register: route_table_result
 
     - name: Associate Subnet with Route Table
-      amazon.aws.ec2_vpc_route_table_subnet_associate:
+      amazon.aws.ec2_vpc_route_table:
         route_table_id: "{{ route_table_result.route_table.id }}"
         subnet_id: "{{ subnet_id }}"
         region: "{{ region }}"
       when: route_table_info.route_tables | length == 0
 
     - name: Add default route to Internet Gateway in Route Table
-      amazon.aws.ec2_vpc_route:
+      amazon.aws.ec2_vpc_route_table:
         route_table_id: "{{ route_table_result.route_table.id }}"
         destination_cidr_block: "0.0.0.0/0"
         gateway_id: "{{ (igw_result.internet_gateway.id if igw_info.internet_gateways | length == 0 else igw_info.internet_gateways[0].internet_gateway_id) }}"
