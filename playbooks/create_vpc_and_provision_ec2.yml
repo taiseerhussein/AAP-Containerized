@@ -12,9 +12,9 @@
     security_group_name: "AAP-SG"
     instance_name: "AAP-EC2-Instance"
     instance_type: "t2.medium"
-    key_name: "your-keypair-name"
-    region: "us-west-2"
-    ami_id: "ami-0a91cd140a1fc148a"  # Change to latest Amazon Linux 2 AMI for your region
+    key_name: "aap-keys"
+    region: "us-east-2"
+    ami_id: "ami-0f59ee13eea6ba34a"  # Change to latest Amazon Linux 2 AMI for your region
 
   tasks:
     - name: Check if VPC exists
