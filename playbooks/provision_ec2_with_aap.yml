@@ -20,7 +20,7 @@
   tasks:
     # VPC Creation
     - name: Check if VPC exists
-      amazon.aws.ec2_vpc_info:
+      amazon.aws.ec2_vpc_net_info:
         filters:
           "tag:Name": "{{ vpc_name }}"
       register: vpc_info
