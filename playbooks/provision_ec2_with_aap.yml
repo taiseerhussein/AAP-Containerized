@@ -26,7 +26,7 @@
       register: vpc_info
 
     - name: Create VPC if not present
-      amazon.aws.ec2_vpc:
+      amazon.aws.ec2_vpc_net:
         name: "{{ vpc_name }}"
         cidr_block: "{{ cidr_block }}"
         enable_dns_support: true
